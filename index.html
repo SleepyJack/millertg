@@ -727,6 +727,30 @@
     }
     .form-btn:hover { background: var(--forest-mid); transform: translateY(-1px); }
     .form-btn.sent { background: var(--sage); }
+    .form-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+    .form-msg {
+      margin-top: 1rem;
+      padding: 0.9rem 1.1rem;
+      border-radius: 2px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      font-weight: 300;
+      display: none;
+    }
+    .form-msg.success {
+      display: block;
+      background: rgba(106,171,120,0.12);
+      border: 1px solid rgba(106,171,120,0.3);
+      color: #2a5c35;
+    }
+    .form-msg.error {
+      display: block;
+      background: rgba(180,60,40,0.07);
+      border: 1px solid rgba(180,60,40,0.2);
+      color: #7a2a1a;
+    }
+    .form-msg a { color: inherit; font-weight: 500; }
 
     /* ─── Footer ──────────────────────────────────────────────────────────── */
     footer {
@@ -1035,6 +1059,7 @@
               <textarea id="message" name="message" placeholder="Berätta om din trädgård och vad du önskar hjälp med…" required></textarea>
             </div>
             <button type="submit" class="form-btn" id="submit-btn">Skicka meddelande</button>
+            <div id="form-msg" class="form-msg" role="alert" aria-live="polite"></div>
           </form>
         </div>
 
@@ -1089,21 +1114,56 @@
     reveals.forEach(el => io.observe(el));
 
     /* ── Contact form ───────────────────────────────────────────────────── */
+    const FORMSPREE_ENDPOINT = 'https://formspree.io/f/XXXXXXXX'; // ← replace with your endpoint
+
     const form = document.getElementById('contact-form');
     const btn  = document.getElementById('submit-btn');
+    const msg  = document.getElementById('form-msg');
 
-    form.addEventListener('submit', e => {
+    function showMsg(type, html) {
+      msg.className = 'form-msg ' + type;
+      msg.innerHTML = html;
+    }
+
+    form.addEventListener('submit', async e => {
       e.preventDefault();
       if (!form.checkValidity()) { form.reportValidity(); return; }
-      btn.textContent = 'Skickat! ✓';
-      btn.classList.add('sent');
+
+      btn.textContent = 'Skickar…';
       btn.disabled = true;
-      setTimeout(() => {
+      msg.className = 'form-msg';
+
+      try {
+        const res = await fetch(FORMSPREE_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Accept': 'application/json' },
+          body: new FormData(form)
+        });
+
+        if (res.ok) {
+          btn.textContent = 'Skickat! ✓';
+          btn.classList.add('sent');
+          showMsg('success', 'Tack! Vi återkommer så snart vi kan.');
+          form.reset();
+          setTimeout(() => {
+            btn.textContent = 'Skicka meddelande';
+            btn.classList.remove('sent');
+            btn.disabled = false;
+            msg.className = 'form-msg';
+          }, 5000);
+        } else {
+          throw new Error(res.status);
+        }
+
+      } catch (_) {
         btn.textContent = 'Skicka meddelande';
-        btn.classList.remove('sent');
         btn.disabled = false;
-        form.reset();
-      }, 3500);
+        showMsg('error',
+          'Tyvärr kunde meddelandet inte skickas just nu. ' +
+          'Vänligen mejla oss direkt på ' +
+          '<a href="mailto:miller.tradgard@gmail.com">miller.tradgard@gmail.com</a>'
+        );
+      }
     });
   </script>
 
